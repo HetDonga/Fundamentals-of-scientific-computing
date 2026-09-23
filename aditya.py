@@ -7,10 +7,9 @@ L = 10.0 # box side length
 dt = 0.01 # time step
 T = 1000 # number of steps to simulate
 
-def initialize():
-  pos = np.random.rand(N,2)
-  vel = (np.random.rand(N,2)-0.5)*2
-  mass = np.ones(N,1)
+pos = np.random.rand(N,2)
+vel = (np.random.rand(N,2)-0.5)*2
+mass = np.ones(N,1)
 
 def walls_reflect(pos, vel, L):
   # Left wall (x < 0)
