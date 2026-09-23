@@ -1,34 +1,27 @@
 #include <stdio.h>
 
-import numpy as np 
-
-
-
-def initialize(N, L):
-    pos = np.random.rand(N, 2) * L
-    vel = (np.random.rand(N, 2) - 0.5) * 2
-    mass = np.ones(N)
-    return pos, vel, mass
+import numpy as np
+np.random.seed(0)
+N = 12 # number of particles
+L = 10.0 # box side length
+dt = 0.01 # time step
+T = 1000 # number of steps to simulate
 
 def walls_reflect(pos, vel, L):
-    for i in range(len(pos)):
-        if pos[i, 0] < 0:
-            pos[i, 0] = 0
-            vel[i, 0] *= -1
-        elif pos[i, 0] > L:
-            pos[i, 0] = L
-            vel[i, 0] *= -1
-
-        if pos[i, 1] < 0:
-            pos[i, 1] = 0
-            vel[i, 1] *= -1
-        elif pos[i, 1] > L:
-            pos[i, 1] = L
-            vel[i, 1] *= -1
-
-
-def main():
-    print("hello world")
-
-if __name__ == "__main__":
-    main()
+# Left wall (x < 0)
+left_hits = pos[:, 0] < 0
+vel[left_hits, 0] *= -1 # flip x velocity
+pos[left_hits, 0] = 0.0 # push back inside
+# Right wall (x > L)
+right_hits = pos[:, 0] > L
+vel[right_hits, 0] *= -1
+pos[right_hits, 0] = L
+# Bottom wall (y < 0)
+bottom_hits = pos[:, 1] < 0
+vel[bottom_hits, 1] *= -1
+pos[bottom_hits, 1] = 0.0
+# Top wall (y > L)
+top_hits = pos[:, 1] > L
+vel[top_hits, 1] *= -1
+pos[top_hits, 1] = L
+return pos, vel
