@@ -8,8 +8,12 @@ T = 1000 # number of steps to simulate
 
 pos = np.random.rand(N, 2)
 vel = (np.random.rand(N, 2) - 0.5) * 2
-# Note: fixed a minor syntax error here (was np.ones(N,1))
 mass = np.ones(N) 
+
+# --- Constants ---
+k = 15.0
+r0 = 0.8
+rc = 2.0
 
 def walls_reflect(pos, vel, L):
     # Left wall (x < 0)
@@ -30,17 +34,30 @@ def walls_reflect(pos, vel, L):
     pos[top_hits, 1] = L
     return pos, vel
 
-
-
 def pairwise_distances(pos, rc):
     # Broadcast to get (N, N, 2) displacement vectors without for loops
     d = pos[:, None, :] - pos[None, :, :]
-    
     # Calculate lengths of displacement vectors to get (N, N) distance matrix
     dist = np.linalg.norm(d, axis=-1)
-    
     # Boolean mask: True where 0 < dist <= rc
     neighbors = (dist > 0) & (dist <= rc)
-    
     return d, dist, neighbors
 
+def pair_forces(pos):
+    d, dist, neighbors = pairwise_distances(pos, rc)
+    u = d / (dist[:, :, None] + 1e-12)
+    fmag = -k * (dist - r0) * neighbors
+    # Sum across axis 1 to get net force per particle
+    F = np.sum(fmag[:, :, None] * u, axis=1)
+    return F
+def kinetic_energy(vel, mass):
+    v_squared = np.sum(vel**2, axis=1)
+    return 0.5 * np.sum(mass * v_squared)
+
+def potential_energy(pos):
+    d, dist, neighbors = pairwise_distances(pos, rc)
+    # Calculate U = 0.5 * k * (r_ij - r0)^2
+    # The neighbors mask zeros out interactions beyond rc and self-interactions
+    u_matrix = 0.5 * k * (dist - r0)**2 * neighbors
+    # Sum the matrix and divide by 2 to correct for double-counting (i->j and j->i)
+    return np.sum(u_matrix) / 2.0
