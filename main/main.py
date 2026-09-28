@@ -8,7 +8,6 @@ T = 1000 # number of steps to simulate
 
 pos = np.random.rand(N, 2)
 vel = (np.random.rand(N, 2) - 0.5) * 2
-# Note: fixed a minor syntax error here (was np.ones(N,1))
 mass = np.ones(N) 
 
 k = 15.0
@@ -44,13 +43,20 @@ def pairwise_distances(pos, rc):
     return d, dist, neighbors
 
 def pair_forces(pos):
-    # Retrieve Distances
     d, dist, neighbors = pairwise_distances(pos, rc)
-    # Calculate Unit Vectors
-    u = d / (dist[:, :, None] + 1e-10)
-    #Magnitude
+    u = d / (dist[:, :, None] + 1e-12)
     fmag = -k * (dist - r0) * neighbors
-    # Sum Total Forces
+    # Sum across axis 1 to get net force per particle
     F = np.sum(fmag[:, :, None] * u, axis=1)
-    
     return F
+def kinetic_energy(vel, mass):
+    v_squared = np.sum(vel**2, axis=1)
+    return 0.5 * np.sum(mass * v_squared)
+
+def potential_energy(pos):
+    d, dist, neighbors = pairwise_distances(pos, rc)
+    # Calculate U = 0.5 * k * (r_ij - r0)^2
+    # The neighbors mask zeros out interactions beyond rc and self-interactions
+    u_matrix = 0.5 * k * (dist - r0)**2 * neighbors
+    # Sum the matrix and divide by 2 to correct for double-counting (i->j and j->i)
+    return np.sum(u_matrix) / 2.0
