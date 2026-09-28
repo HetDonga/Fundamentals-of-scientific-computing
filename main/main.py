@@ -11,6 +11,10 @@ vel = (np.random.rand(N, 2) - 0.5) * 2
 # Note: fixed a minor syntax error here (was np.ones(N,1))
 mass = np.ones(N) 
 
+k = 15.0
+r0 = 0.8
+rc = 2.0
+
 def walls_reflect(pos, vel, L):
     # Left wall (x < 0)
     left_hits = pos[:, 0] < 0
@@ -30,18 +34,23 @@ def walls_reflect(pos, vel, L):
     pos[top_hits, 1] = L
     return pos, vel
 
-
-
 def pairwise_distances(pos, rc):
     # Broadcast to get (N, N, 2) displacement vectors without for loops
     d = pos[:, None, :] - pos[None, :, :]
-    
     # Calculate lengths of displacement vectors to get (N, N) distance matrix
     dist = np.linalg.norm(d, axis=-1)
-    
     # Boolean mask: True where 0 < dist <= rc
     neighbors = (dist > 0) & (dist <= rc)
-    
     return d, dist, neighbors
 
-
+def pair_forces(pos):
+    # Retrieve Distances
+    d, dist, neighbors = pairwise_distances(pos, rc)
+    # Calculate Unit Vectors
+    u = d / (dist[:, :, None] + 1e-10)
+    #Magnitude
+    fmag = -k * (dist - r0) * neighbors
+    # Sum Total Forces
+    F = np.sum(fmag[:, :, None] * u, axis=1)
+    
+    return F
