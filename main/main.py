@@ -50,6 +50,7 @@ def pair_forces(pos):
     F = np.sum(fmag[:, :, None] * u, axis=1)
     return F
 def kinetic_energy(vel, mass):
+    # Axis=1 is column and sums elements of a column
     v_squared = np.sum(vel**2, axis=1)
     return 0.5 * np.sum(mass * v_squared)
 
