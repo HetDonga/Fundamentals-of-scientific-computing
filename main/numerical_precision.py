@@ -1,184 +1,320 @@
-
-import numpy as np
 import time
-import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 
 # ============================================================
-# NUMERICAL PRECISION EXPERIMENT
+# 1. PARAMETERS
 # ============================================================
 
-STEPS = 500
-TEST_DT = 0.001
+np.random.seed(0)
 
-# Generate one shared initial configuration in float64.
-rng = np.random.default_rng(42)
-initial_pos = rng.random((N, 2)) * L
-initial_vel = (rng.random((N, 2)) - 0.5) * 2.0
+N = 45
+L = 10.0
+dt = 0.005
+T = 2000
 
-def precision_run(dtype):
+m = 1.0
+k = 10.0
+r0 = 0.8
+rc = 2.0
 
-    # Identical initial conditions, converted to chosen precision.
-    pos = initial_pos.astype(dtype)
-    vel = initial_vel.astype(dtype)
-    masses = np.full(N, m, dtype=dtype)
+gamma = 0  # Conservative dynamics
 
-    k_local = dtype(k)
-    r0_local = dtype(r0)
-    rc_local = dtype(rc)
-    gamma_local = dtype(0.0)  # Conservative comparison
+# ============================================================
+# 2. IDENTICAL INITIAL CONDITIONS
+# Generate once in float64, then convert for both simulations.
+# ============================================================
 
-    def force_function(pos, vel):
+initial_pos = np.random.rand(N, 2) * L
+initial_vel = (np.random.rand(N, 2) - 0.5) * 2.0 + 10.0
 
-        d = pos[:, None, :] - pos[None, :, :]
-        dist = np.sqrt(np.sum(d * d, axis=-1))
 
-        neighbours = (dist > 0) & (dist <= rc_local)
+# ============================================================
+# 3. WALL REFLECTIONS
+# ============================================================
 
-        unit = d / np.maximum(
-            dist[:, :, None],
-            dtype(1e-12)
+def walls_reflect(pos, vel, L):
+    hit = pos[:, 0] < 0
+    pos[hit, 0] = -pos[hit, 0]
+    vel[hit, 0] = np.abs(vel[hit, 0])
+
+    hit = pos[:, 0] > L
+    pos[hit, 0] = 2 * L - pos[hit, 0]
+    vel[hit, 0] = -np.abs(vel[hit, 0])
+
+    hit = pos[:, 1] < 0
+    pos[hit, 1] = -pos[hit, 1]
+    vel[hit, 1] = np.abs(vel[hit, 1])
+
+    hit = pos[:, 1] > L
+    pos[hit, 1] = 2 * L - pos[hit, 1]
+    vel[hit, 1] = -np.abs(vel[hit, 1])
+
+    return pos, vel
+
+
+# ============================================================
+# 4. PAIRWISE DISTANCES AND NEIGHBOURS
+# ============================================================
+
+def pairwise_distances(pos, rc):
+    d = pos[:, None, :] - pos[None, :, :]
+    dist = np.linalg.norm(d, axis=-1)
+    neighbors = (dist > 0) & (dist <= rc)
+
+    return d, dist, neighbors
+
+
+# ============================================================
+# 5. SPRING FORCES
+# ============================================================
+
+def pair_forces(pos):
+    d, dist, neighbors = pairwise_distances(pos, rc)
+
+    unit = d / np.maximum(dist[:, :, None], 1e-12)
+    fmag = -k * (dist - r0) * neighbors
+
+    return np.sum(fmag[:, :, None] * unit, axis=1)
+
+
+# ============================================================
+# 6. DRAG AND TOTAL FORCES
+# ============================================================
+
+def drag_forces(vel, gamma):
+    return -gamma * vel
+
+
+def total_forces(pos, vel, gamma):
+    return pair_forces(pos) + drag_forces(vel, gamma)
+
+
+# ============================================================
+# 7. ENERGY CALCULATIONS
+# ============================================================
+
+def kinetic_energy(vel, mass):
+    speed_squared = np.sum(vel**2, axis=1)
+    return 0.5 * np.sum(mass * speed_squared)
+
+
+def potential_energy(pos):
+    d, dist, neighbors = pairwise_distances(pos, rc)
+
+    pair_energy = (
+        0.5 * k * ((dist - r0)**2 - (rc - r0)**2)
+    ) * neighbors
+
+    return 0.5 * np.sum(pair_energy)
+
+
+def total_energy(pos, vel, mass):
+    return kinetic_energy(vel, mass) + potential_energy(pos)
+
+
+# ============================================================
+# 8. INTEGRATION
+# ============================================================
+
+def integrate_step(pos, vel, mass, dt, gamma):
+    F0 = pair_forces(pos)
+    a0 = (F0 - gamma * vel) / mass[:, None]
+
+    new_pos = pos + vel * dt + 0.5 * a0 * dt**2
+
+    F1 = pair_forces(new_pos)
+
+    numerator = vel + 0.5 * dt * (
+        a0 + F1 / mass[:, None]
+    )
+
+    denominator = (
+        1.0 + 0.5 * dt * gamma / mass[:, None]
+    )
+
+    new_vel = numerator / denominator
+
+    walls_reflect(new_pos, new_vel, L)
+
+    pos[:] = new_pos
+    vel[:] = new_vel
+
+    return pos, vel
+
+
+# ============================================================
+# 9. RUN ONE PRECISION
+# ============================================================
+
+def run_simulation(dtype):
+    pos = initial_pos.astype(dtype).copy()
+    vel = initial_vel.astype(dtype).copy()
+    mass = np.full(N, m, dtype=dtype)
+
+    # Memory for the main simulation state arrays.
+    memory_bytes = pos.nbytes + vel.nbytes + mass.nbytes
+
+    initial_energy = float(total_energy(pos, vel, mass))
+
+    kinetic_history = np.empty(T, dtype=np.float64)
+    potential_history = np.empty(T, dtype=np.float64)
+    total_history = np.empty(T, dtype=np.float64)
+
+    start_time = time.perf_counter()
+
+    for step in range(T):
+        integrate_step(pos, vel, mass, dt, gamma)
+
+        kinetic_history[step] = kinetic_energy(vel, mass)
+        potential_history[step] = potential_energy(pos)
+        total_history[step] = (
+            kinetic_history[step] + potential_history[step]
         )
 
-        fmag = -k_local * (dist - r0_local) * neighbours
-        spring = np.sum(fmag[:, :, None] * unit, axis=1)
+    execution_time = time.perf_counter() - start_time
 
-        drag = -gamma_local * vel
+    # Save positions at every step for trajectory comparison.
+    # This array is excluded from the state-memory measurement.
+    # To avoid changing the simulation's memory use, only final
+    # positions are retained for the main comparison.
+    final_positions = pos.astype(np.float64).copy()
 
-        return spring + drag
-
-    def energy_function(pos, vel):
-
-        d = pos[:, None, :] - pos[None, :, :]
-        dist = np.sqrt(np.sum(d * d, axis=-1))
-
-        neighbours = (dist > 0) & (dist <= rc_local)
-
-        KE = dtype(0.5) * np.sum(
-            masses * np.sum(vel * vel, axis=1)
-        )
-
-        # Shifted potential, consistent between both runs.
-        pair_U = (
-            dtype(0.5) * k_local
-            * ((dist - r0_local)**2 - (rc_local - r0_local)**2)
-            * neighbours
-        )
-        PE = np.sum(pair_U) / dtype(2.0)
-
-        return float(KE + PE)
-
-    energy_history = [energy_function(pos, vel)]
-
-    # Measure execution time for the same number of steps.
-    start = time.perf_counter()
-
-    for step in range(STEPS):
-
-        # Semi-implicit Euler: identical integrator for both dtypes.
-        force = force_function(pos, vel)
-        vel += (force / masses[:, None]) * dtype(TEST_DT)
-        pos += vel * dtype(TEST_DT)
-
-        # Reflect at the walls.
-        for axis in range(2):
-            low = pos[:, axis] < 0
-            pos[low, axis] *= -1
-            vel[low, axis] = np.abs(vel[low, axis])
-
-            high = pos[:, axis] > L
-            pos[high, axis] = dtype(2 * L) - pos[high, axis]
-            vel[high, axis] = -np.abs(vel[high, axis])
-
-        energy_history.append(energy_function(pos, vel))
-
-    elapsed = time.perf_counter() - start
-
-    # Report the main arrays' memory, not temporary arrays.
-    array_memory = pos.nbytes + vel.nbytes + masses.nbytes
+    max_energy_drift = (
+        np.max(np.abs(total_history - initial_energy))
+        / max(abs(initial_energy), 1e-15)
+    )
 
     return {
         "dtype": np.dtype(dtype).name,
-        "position": pos.copy().astype(np.float64),
-        "energy": np.array(energy_history, dtype=np.float64),
-        "time_seconds": elapsed,
-        "array_memory_bytes": array_memory,
-        "final_energy": energy_history[-1],
-        "initial_energy": energy_history[0],
-        "energy_history": np.array(energy_history, dtype=np.float64)
+        "positions": final_positions,
+        "kinetic": kinetic_history,
+        "potential": potential_history,
+        "total": total_history,
+        "initial_energy": initial_energy,
+        "final_energy": float(total_history[-1]),
+        "max_energy_drift": float(max_energy_drift),
+        "runtime": execution_time,
+        "memory_bytes": memory_bytes,
     }
 
-# Run both simulations.
-result32 = precision_run(np.float32)
-result64 = precision_run(np.float64)
 
 # ============================================================
-# COMPARE RESULTS
+# 10. RUN FLOAT32 AND FLOAT64
 # ============================================================
 
-pos32 = result32["position"]
-pos64 = result64["position"]
+print("Running float32 simulation...")
+result32 = run_simulation(np.float32)
 
-position_error = (
-    np.linalg.norm(pos32 - pos64)
-    / max(np.linalg.norm(pos64), 1e-15)
+print("Running float64 simulation...")
+result64 = run_simulation(np.float64)
+
+
+# ============================================================
+# 11. MEMORY, TIME, ENERGY AND TRAJECTORY COMPARISON
+# ============================================================
+
+memory32 = result32["memory_bytes"]
+memory64 = result64["memory_bytes"]
+
+relative_position_error = (
+    np.linalg.norm(
+        result32["positions"] - result64["positions"]
+    )
+    / max(np.linalg.norm(result64["positions"]), 1e-15)
 )
 
-energy_drift32 = (
-    abs(result32["final_energy"] - result32["initial_energy"])
-    / max(abs(result32["initial_energy"]), 1e-15)
+print("\n========== TASK 5 RESULTS ==========")
+
+print("\nMemory usage of positions, velocities and masses:")
+print(f"float32: {memory32} bytes")
+print(f"float64: {memory64} bytes")
+print(f"float64 / float32 memory ratio: {memory64 / memory32:.2f}")
+
+print("\nExecution time:")
+print(f"float32: {result32['runtime']:.6f} seconds")
+print(f"float64: {result64['runtime']:.6f} seconds")
+
+if result32["runtime"] > 0:
+    print(
+        "Runtime ratio (float64 / float32): "
+        f"{result64['runtime'] / result32['runtime']:.3f}"
+    )
+
+print("\nEnergy comparison:")
+for result in (result32, result64):
+    print(f"\n{result['dtype']}:")
+    print(f"Initial energy: {result['initial_energy']:.10f}")
+    print(f"Final energy:   {result['final_energy']:.10f}")
+    print(
+        f"Maximum relative energy drift: "
+        f"{result['max_energy_drift']:.6e}"
+    )
+
+print("\nTrajectory comparison:")
+print(
+    "Relative final-position error: "
+    f"{relative_position_error:.8e}"
 )
 
-energy_drift64 = (
-    abs(result64["final_energy"] - result64["initial_energy"])
-    / max(abs(result64["initial_energy"]), 1e-15)
+print("====================================")
+
+
+# ============================================================
+# 12. PLOT ENERGY COMPARISON
+# ============================================================
+
+steps = np.arange(1, T + 1)
+
+fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+
+axes[0, 0].plot(steps, result32["kinetic"], label="float32")
+axes[0, 0].plot(steps, result64["kinetic"], label="float64")
+axes[0, 0].set_title("Kinetic Energy")
+axes[0, 0].set_xlabel("Step")
+axes[0, 0].set_ylabel("Energy")
+axes[0, 0].legend()
+
+axes[0, 1].plot(steps, result32["potential"], label="float32")
+axes[0, 1].plot(steps, result64["potential"], label="float64")
+axes[0, 1].set_title("Potential Energy")
+axes[0, 1].set_xlabel("Step")
+axes[0, 1].set_ylabel("Energy")
+axes[0, 1].legend()
+
+axes[1, 0].plot(steps, result32["total"], label="float32")
+axes[1, 0].plot(steps, result64["total"], label="float64")
+axes[1, 0].set_title("Total Energy")
+axes[1, 0].set_xlabel("Step")
+axes[1, 0].set_ylabel("Energy")
+axes[1, 0].legend()
+
+axes[1, 1].scatter(
+    result32["positions"][:, 0],
+    result32["positions"][:, 1],
+    marker="x",
+    label="float32",
+    s=35
 )
 
-comparison = pd.DataFrame({
-    "Metric": [
-        "Execution time (seconds)",
-        "Main array memory (bytes)",
-        "Initial total energy",
-        "Final total energy",
-        "Maximum relative energy drift",
-    ],
-    "float32": [
-        result32["time_seconds"],
-        result32["array_memory_bytes"],
-        result32["initial_energy"],
-        result32["final_energy"],
-        np.max(np.abs(
-            result32["energy_history"] - result32["initial_energy"]
-        )) / max(abs(result32["initial_energy"]), 1e-15),
-    ],
-    "float64": [
-        result64["time_seconds"],
-        result64["array_memory_bytes"],
-        result64["initial_energy"],
-        result64["final_energy"],
-        np.max(np.abs(
-            result64["energy_history"] - result64["initial_energy"]
-        )) / max(abs(result64["initial_energy"]), 1e-15),
-    ]
-})
+axes[1, 1].scatter(
+    result64["positions"][:, 0],
+    result64["positions"][:, 1],
+    facecolors="none",
+    edgecolors="blue",
+    label="float64",
+    s=35
+)
 
-display(comparison)
+axes[1, 1].set_title(
+    f"Final positions\nRelative error = {relative_position_error:.3e}"
+)
+axes[1, 1].set_xlabel("x")
+axes[1, 1].set_ylabel("y")
+axes[1, 1].set_xlim(0, L)
+axes[1, 1].set_ylim(0, L)
+axes[1, 1].set_aspect("equal")
+axes[1, 1].legend()
 
-print(f"Relative final-position error: {position_error:.6e}")
-print(f"Final-position difference norm: {np.linalg.norm(pos32 - pos64):.6e}")
-
-# ============================================================
-# PLOT ENERGY HISTORIES
-# ============================================================
-
-plt.figure(figsize=(10, 5))
-
-plt.plot(result32["energy_history"], label="float32")
-plt.plot(result64["energy_history"], label="float64")
-
-plt.xlabel("Simulation step")
-plt.ylabel("Total mechanical energy")
-plt.title("Numerical precision: energy comparison")
-plt.legend()
 plt.tight_layout()
 plt.show()
