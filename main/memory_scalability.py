@@ -171,4 +171,5 @@ def main():
     plt.savefig("task7_memory_scalability.png", dpi=200)
     plt.show()
 
-
+    if __name__ == "__main__":
+    main()
