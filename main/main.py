@@ -3,10 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 
-# ============================================================
-# 1. PARAMETERS
-# ============================================================
 
+# 1. PARAMETERS
 np.random.seed(0)
 
 N = 45
@@ -23,17 +21,12 @@ rc = 2.0
 
 gamma = 0  # Set to 0 for conservative dynamics
 
-# ============================================================
 # 2. INITIAL POSITIONS AND VELOCITIES
-# ============================================================
 
 pos = np.random.rand(N, 2) * L
 vel = (np.random.rand(N, 2) - 0.5) * 2.0+10
 
-# ============================================================
 # 3. WALL REFLECTIONS
-# ============================================================
-
 
 def walls_reflect(pos, vel, L):
 
@@ -59,10 +52,7 @@ def walls_reflect(pos, vel, L):
 
     return pos, vel
 
-
-# ============================================================
 # 4. PAIRWISE DISTANCES AND NEIGHBOURS
-# ============================================================
 
 def pairwise_distances(pos, rc):
     d = pos[:, None, :] - pos[None, :, :]
@@ -71,9 +61,7 @@ def pairwise_distances(pos, rc):
 
     return d, dist, neighbors
 
-# ============================================================
 # 5. SPRING FORCES
-# ============================================================
 
 def pair_forces(pos):
     d, dist, neighbors = pairwise_distances(pos, rc)
@@ -83,9 +71,7 @@ def pair_forces(pos):
 
     return np.sum(fmag[:, :, None] * unit, axis=1)
 
-# ============================================================
 # 6. DRAG AND TOTAL FORCES
-# ============================================================
 
 def drag_forces(vel, gamma):
     return -gamma * vel
@@ -93,9 +79,7 @@ def drag_forces(vel, gamma):
 def total_forces(pos, vel, gamma):
     return pair_forces(pos) + drag_forces(vel, gamma)
 
-# ============================================================
 # 7. ENERGY CALCULATIONS
-# ============================================================
 
 def kinetic_energy(vel, mass):
     speed_squared = np.sum(vel**2, axis=1)
@@ -116,9 +100,7 @@ def potential_energy(pos):
 def total_energy(pos, vel, mass):
     return kinetic_energy(vel, mass) + potential_energy(pos)
 
-# ============================================================
 # 8. NUMERICAL VERIFICATION
-# ============================================================
 
 def verify_simulation(pos):
     d, dist, neighbors = pairwise_distances(pos, rc)
@@ -139,9 +121,7 @@ def verify_simulation(pos):
 
 verify_simulation(pos)
 
-# ============================================================
 # 9. INTEGRATION: SPRING VERLET WITH IMPLICIT LINEAR DRAG
-# ============================================================
 
 
 def integrate_step(pos, vel, mass, dt, gamma):
@@ -172,9 +152,7 @@ def integrate_step(pos, vel, mass, dt, gamma):
 
     return pos, vel
 
-# ============================================================
 # 10. SET UP ANIMATION AND ENERGY PLOTS
-# ============================================================
 
 plt.style.use("ggplot")
 
@@ -205,9 +183,7 @@ E_history = []
 
 E_initial = total_energy(pos, vel, mass)
 
-# ============================================================
 # 11. ANIMATION UPDATE
-# ============================================================
 
 def update(frame):
 
@@ -241,9 +217,7 @@ def update(frame):
 
     return scatter, line_ke, line_pe, line_total
 
-# ============================================================
 # 12. RUN ANIMATION
-# ============================================================
 
 animation = FuncAnimation(
     fig,
@@ -257,9 +231,7 @@ animation = FuncAnimation(
 plt.tight_layout()
 plt.show()
 
-# ============================================================
 # 13. QUANTITATIVE RESULTS
-# ============================================================
 
 KE_history = np.asarray(KE_history)
 PE_history = np.asarray(PE_history)
