@@ -2,17 +2,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ============================================================
 # 1. PARAMETERS
-# ============================================================
 
 N_VALUES = [100, 1000, 5000, 10000]
 
 DTYPES = [np.float32, np.float64]
 
-# ============================================================
 # 2. MEMORY CALCULATION
-# ============================================================
 
 def theoretical_memory(N, dtype):
     itemsize = np.dtype(dtype).itemsize
@@ -28,9 +24,7 @@ def format_memory(byte_count):
         return f"{byte_count / 1024:.2f} KiB"
 
 
-# ============================================================
 # 3. ACTUAL NUMPY MEMORY
-# ============================================================
 
 def actual_numpy_memory(N, dtype):
     displacement = np.empty((N, N, 2), dtype=dtype)
@@ -38,10 +32,7 @@ def actual_numpy_memory(N, dtype):
     del displacement
     return memory
 
-
-# ============================================================
 # 4. PRINT MEMORY TABLE
-# ============================================================
 
 def main():
 
@@ -73,9 +64,7 @@ def main():
             f"{memory64 / memory32:15.2f}x"
         )
 
-    # ========================================================
     # 5. VERIFY WITH ACTUAL NUMPY NBYTES
-    # ========================================================
 
     print("\n========== NUMPY NBYTES VERIFICATION ==========\n")
 
@@ -94,9 +83,7 @@ def main():
                 f"Match: {theoretical == actual}"
             )
 
-    # ========================================================
     # 6. MEMORY GRAPH
-    # ========================================================
 
     memory32 = [
         results[N]["float32"] / (1024**2)
