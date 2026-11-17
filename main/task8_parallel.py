@@ -6,10 +6,7 @@ import csv
 from time import perf_counter
 from collections import defaultdict
 
-
-# --------------------------------------------------
 # PARAMETERS
-# --------------------------------------------------
 
 N_VALUES = [50, 200, 500, 1000]
 
@@ -20,10 +17,7 @@ rc = 2.0
 
 REPEATS = 7
 
-
-# --------------------------------------------------
 # 1. BASELINE: CHECK EVERY PAIR
-# --------------------------------------------------
 
 def force_baseline(pos):
 
@@ -59,9 +53,7 @@ def force_baseline(pos):
     return forces, pairs_checked
 
 
-# --------------------------------------------------
 # 2. CELL-LINKED NEIGHBOR METHOD
-# --------------------------------------------------
 
 def force_cell_linked(pos):
 
@@ -137,11 +129,7 @@ def force_cell_linked(pos):
 
     return forces, pairs_checked
 
-
-# --------------------------------------------------
 # 3. RUN EXPERIMENT
-# --------------------------------------------------
-
 results = []
 
 print("\nTASK 8: CELL-LINKED NEIGHBOR SEARCH")
@@ -225,10 +213,7 @@ for N in N_VALUES:
 
     })
 
-
-# --------------------------------------------------
 # 4. PRINT RESULTS TABLE
-# --------------------------------------------------
 
 print("\n\n========== FINAL RESULTS ==========\n")
 
@@ -251,9 +236,7 @@ for row in results:
     )
 
 
-# --------------------------------------------------
 # 5. SAVE CSV
-# --------------------------------------------------
 
 with open("task8_cell_results.csv", "w", newline="") as file:
 
@@ -267,10 +250,7 @@ with open("task8_cell_results.csv", "w", newline="") as file:
 
 print("\nResults saved to task8_cell_results.csv")
 
-
-# --------------------------------------------------
 # 6. EXECUTION TIME GRAPH
-# --------------------------------------------------
 
 N = [row["N"] for row in results]
 
@@ -302,10 +282,7 @@ plt.tight_layout()
 plt.savefig("task8_cell_timing.png", dpi=300)
 plt.show()
 
-
-# --------------------------------------------------
 # 7. SPEEDUP GRAPH
-# --------------------------------------------------
 
 speedups = [row["Speedup"] for row in results]
 
@@ -325,10 +302,7 @@ plt.tight_layout()
 plt.savefig("task8_cell_speedup.png", dpi=300)
 plt.show()
 
-
-# --------------------------------------------------
 # 8. PAIR REDUCTION GRAPH
-# --------------------------------------------------
 
 reductions = [
     row["Pair reduction (%)"] for row in results
