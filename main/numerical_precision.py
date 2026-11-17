@@ -2,10 +2,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ============================================================
 # 1. PARAMETERS
-# ============================================================
-
 np.random.seed(0)
 
 N = 45
@@ -20,18 +17,13 @@ rc = 2.0
 
 gamma = 0  # Conservative dynamics
 
-# ============================================================
 # 2. IDENTICAL INITIAL CONDITIONS
 # Generate once in float64, then convert for both simulations.
-# ============================================================
 
 initial_pos = np.random.rand(N, 2) * L
 initial_vel = (np.random.rand(N, 2) - 0.5) * 2.0 + 10.0
 
-
-# ============================================================
 # 3. WALL REFLECTIONS
-# ============================================================
 
 def walls_reflect(pos, vel, L):
     hit = pos[:, 0] < 0
@@ -53,9 +45,7 @@ def walls_reflect(pos, vel, L):
     return pos, vel
 
 
-# ============================================================
 # 4. PAIRWISE DISTANCES AND NEIGHBOURS
-# ============================================================
 
 def pairwise_distances(pos, rc):
     d = pos[:, None, :] - pos[None, :, :]
@@ -64,10 +54,7 @@ def pairwise_distances(pos, rc):
 
     return d, dist, neighbors
 
-
-# ============================================================
 # 5. SPRING FORCES
-# ============================================================
 
 def pair_forces(pos):
     d, dist, neighbors = pairwise_distances(pos, rc)
@@ -77,10 +64,7 @@ def pair_forces(pos):
 
     return np.sum(fmag[:, :, None] * unit, axis=1)
 
-
-# ============================================================
 # 6. DRAG AND TOTAL FORCES
-# ============================================================
 
 def drag_forces(vel, gamma):
     return -gamma * vel
@@ -89,10 +73,7 @@ def drag_forces(vel, gamma):
 def total_forces(pos, vel, gamma):
     return pair_forces(pos) + drag_forces(vel, gamma)
 
-
-# ============================================================
 # 7. ENERGY CALCULATIONS
-# ============================================================
 
 def kinetic_energy(vel, mass):
     speed_squared = np.sum(vel**2, axis=1)
@@ -112,10 +93,7 @@ def potential_energy(pos):
 def total_energy(pos, vel, mass):
     return kinetic_energy(vel, mass) + potential_energy(pos)
 
-
-# ============================================================
 # 8. INTEGRATION
-# ============================================================
 
 def integrate_step(pos, vel, mass, dt, gamma):
     F0 = pair_forces(pos)
@@ -142,10 +120,7 @@ def integrate_step(pos, vel, mass, dt, gamma):
 
     return pos, vel
 
-
-# ============================================================
 # 9. RUN ONE PRECISION
-# ============================================================
 
 def run_simulation(dtype):
     pos = initial_pos.astype(dtype).copy()
@@ -198,10 +173,7 @@ def run_simulation(dtype):
         "memory_bytes": memory_bytes,
     }
 
-
-# ============================================================
 # 10. RUN FLOAT32 AND FLOAT64
-# ============================================================
 
 print("Running float32 simulation...")
 result32 = run_simulation(np.float32)
@@ -209,10 +181,7 @@ result32 = run_simulation(np.float32)
 print("Running float64 simulation...")
 result64 = run_simulation(np.float64)
 
-
-# ============================================================
 # 11. MEMORY, TIME, ENERGY AND TRAJECTORY COMPARISON
-# ============================================================
 
 memory32 = result32["memory_bytes"]
 memory64 = result64["memory_bytes"]
@@ -259,10 +228,7 @@ print(
 
 print("====================================")
 
-
-# ============================================================
 # 12. PLOT ENERGY COMPARISON
-# ============================================================
 
 steps = np.arange(1, T + 1)
 
